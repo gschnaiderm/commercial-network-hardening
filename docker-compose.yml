@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  edge_firewall:
+    build: ./firewalls/edge
+    container_name: edge_firewall
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - WEB_IP=10.0.10.100
+      - IDS_IP=10.0.10.200
+    volumes:
+      - ./firewalls/common:/root/common:Z
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.254
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  ids:
+    build: ./ids
+    container_name: ids
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    environment:
+      - WEB_IP=10.0.10.100
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.200
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  web_server:
+    build: ./web
+    container_name: web_server
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - GIT_REPO_URL=https://github.com/IAW-2026/etapa-3-control-plane-towit
+      - PORT=80
+      - INTERNAL_FW_DMZ_IP=10.0.10.1
+      - DB_NET=10.0.20.0/24
+      - SIEM_NET=10.0.30.0/24
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.100
+    command: /bin/bash -c "/root/init.sh"
+
+  internal_firewall:
+    build: ./firewalls/internal
+    container_name: internal_firewall
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - WEB_IP=10.0.10.100
+      - DB_IP=10.0.20.100
+      - SIEM_IP=10.0.30.100
+    volumes:
+      - ./firewalls/common:/root/common:Z
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.1
+      db_net:
+        ipv4_address: 10.0.20.1
+      siem_net:
+        ipv4_address: 10.0.30.1
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  db_server:
+    image: postgres:15-alpine
+    container_name: db_server
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_USER=webapp_user
+      - POSTGRES_DB=webapp_db
+      - INTERNAL_FW_DB_IP=10.0.20.1
+      - DMZ_NET=10.0.10.0/24
+      - SIEM_NET=10.0.30.0/24
+    networks:
+      db_net:
+        ipv4_address: 10.0.20.100
+    volumes:
+      - ./db/init.sh:/root/init.sh:Z
+    command: /bin/bash -c "bash /root/init.sh && docker-entrypoint.sh postgres"
+
+  siem:
+    # A lightweight syslog server for demonstration, can be swapped for ELK later
+    image: ubuntu:22.04
+    container_name: siem
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - INTERNAL_FW_SIEM_IP=10.0.30.1
+      - DMZ_NET=10.0.10.0/24
+      - DB_NET=10.0.20.0/24
+    networks:
+      siem_net:
+        ipv4_address: 10.0.30.100
+    volumes:
+      - ./siem/init.sh:/root/init.sh:Z
+    command: /bin/bash -c "apt-get update && apt-get install -y rsyslog iproute2 && bash /root/init.sh && /usr/sbin/rsyslogd && touch /var/log/syslog && tail -f /var/log/syslog"
+
+networks:
+  dmz_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.10.0/24
+          gateway: 10.0.10.253
+  db_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.20.0/24
+          gateway: 10.0.20.253
+  siem_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.30.0/24
+          gateway: 10.0.30.253
