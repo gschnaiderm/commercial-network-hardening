@@ -58,6 +58,7 @@ services:
       - WEB_IP=10.0.10.100
       - DB_IP=10.0.20.100
       - SIEM_IP=10.0.30.100
+      - IDS_IP=10.0.10.200
     volumes:
       - ./firewalls/common:/opt/common:z
     networks:

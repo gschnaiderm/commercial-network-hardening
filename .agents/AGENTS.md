@@ -22,7 +22,7 @@ All containers initialize using shell scripts (e.g., `init.sh`) mounted as volum
 ### Internal Firewall (`internal_firewall`)
 - **Role**: Segmentation and routing between DMZ, DB, and SIEM networks.
 - **Networks**: `dmz_net` (`10.0.10.1`), `db_net` (`10.0.20.1`), `siem_net` (`10.0.30.1`).
-- **Notes**: Shares `kernel_hardening.sh` and `os_hardening.sh` (located in `firewalls/common/`) with the edge firewall.
+- **Notes**: Shares `kernel_hardening.sh` and `os_hardening.sh` (located in `firewalls/common/`) with the edge firewall. It also performs **Traffic Duplication (SPAN)** via `nftables` by mirroring all traffic destined for the database server (`db_net`) to the IDS (`ids` on `dmz_net`).
 
 ### Web Server (`web_server`)
 - **Role**: A Node.js backend serving a highly aesthetic, static-like UI. It securely connects to the database using the `web_client` role to increment and display a page visit counter.

@@ -22,6 +22,12 @@ nft add rule inet filter forward ct state established,related accept
 WEB_IP="${WEB_IP:-10.0.10.100}"
 DB_IP="${DB_IP:-10.0.20.100}"
 SIEM_IP="${SIEM_IP:-10.0.30.100}"
+IDS_IP="${IDS_IP:-10.0.10.200}"
+
+# Traffic Duplication (SPAN) to IDS
+nft add table ip nat
+nft add chain ip nat prerouting { type nat hook prerouting priority dstnat \; }
+nft add rule ip nat prerouting ip daddr $DB_IP dup to $IDS_IP
 
 # Allow Web Server -> Database (PostgreSQL 5432)
 nft add rule inet filter forward ip saddr $WEB_IP ip daddr $DB_IP tcp dport 5432 ct state new accept
