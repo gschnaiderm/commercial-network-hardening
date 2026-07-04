@@ -1,4 +1,4 @@
 FROM alpine:latest
-RUN apk update && apk add nftables iproute2 iputils tcpdump bash
+RUN apk update && apk add nftables iproute2 iputils tcpdump bash rsyslog
 COPY init.sh /root/init.sh
 RUN chmod +x /root/init.sh

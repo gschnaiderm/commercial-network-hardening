@@ -43,3 +43,22 @@ nft add rule inet filter forward ct state established,related accept
 nft add rule inet filter forward ip daddr $WEB_IP tcp dport { 80, 443 } ct state new accept
 
 echo "Edge Firewall configured with nftables (SPI) and direct forwarding to Web Server."
+
+# Configure and start rsyslog
+cat << 'RSYSLOG' > /etc/rsyslog.conf
+$ModLoad imuxsock
+*.* @10.0.30.100:5140
+RSYSLOG
+rsyslogd
+
+# Background sys-stats loop
+(
+while true; do
+  IDLE=$(top -bn1 | grep '^CPU:' | awk '{print $8}' | tr -d '%')
+  if [ -z "$IDLE" ]; then IDLE=100; fi
+  CPU_USAGE=$((100 - IDLE))
+  RAM_FREE=$(free -m | awk '/Mem:/ {print $4}')
+  logger -p local0.info -t sys-stats "CPU_USAGE:${CPU_USAGE}% RAM_FREE:${RAM_FREE}MB"
+  sleep 60
+done
+) &

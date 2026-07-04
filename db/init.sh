@@ -11,3 +11,22 @@ ip route add $DMZ_NET via $INTERNAL_FW_DB_IP
 ip route add $SIEM_NET via $INTERNAL_FW_DB_IP
 
 echo "DB Server routes configured."
+
+# Configure and start rsyslog
+cat << 'RSYSLOG' > /etc/rsyslog.conf
+$ModLoad imuxsock
+*.* @10.0.30.100:5140
+RSYSLOG
+rsyslogd
+
+# Background sys-stats loop
+(
+while true; do
+  IDLE=$(top -bn1 | grep '^CPU:' | awk '{print $8}' | tr -d '%')
+  if [ -z "$IDLE" ]; then IDLE=100; fi
+  CPU_USAGE=$((100 - IDLE))
+  RAM_FREE=$(free -m | awk '/Mem:/ {print $4}')
+  logger -p local0.info -t sys-stats "CPU_USAGE:${CPU_USAGE}% RAM_FREE:${RAM_FREE}MB"
+  sleep 60
+done
+) &
