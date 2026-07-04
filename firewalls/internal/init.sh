@@ -1,6 +1,6 @@
 # Execute common hardening scripts
-bash /root/common/kernel_hardening.sh
-bash /root/common/os_hardening.sh
+bash /opt/common/router_hardening.sh
+bash /opt/common/os_hardening.sh
 
 # Flush all nftables rules
 nft flush ruleset

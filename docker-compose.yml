@@ -10,7 +10,7 @@ services:
       - WEB_IP=10.0.10.100
       - IDS_IP=10.0.10.200
     volumes:
-      - ./firewalls/common:/root/common:Z
+      - ./firewalls/common:/opt/common:z
     ports:
       - "80:80"
       - "443:443"
@@ -59,7 +59,7 @@ services:
       - DB_IP=10.0.20.100
       - SIEM_IP=10.0.30.100
     volumes:
-      - ./firewalls/common:/root/common:Z
+      - ./firewalls/common:/opt/common:z
     networks:
       dmz_net:
         ipv4_address: 10.0.10.1
@@ -85,7 +85,8 @@ services:
       db_net:
         ipv4_address: 10.0.20.100
     volumes:
-      - ./db/init.sh:/root/init.sh:Z
+      - ./db/init.sh:/root/init.sh:z
+      - ./db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:z
     command: /bin/bash -c "bash /root/init.sh && docker-entrypoint.sh postgres"
 
   siem:
@@ -102,8 +103,19 @@ services:
       siem_net:
         ipv4_address: 10.0.30.100
     volumes:
-      - ./siem/init.sh:/root/init.sh:Z
+      - ./siem/init.sh:/root/init.sh:z
     command: /bin/bash -c "apt-get update && apt-get install -y rsyslog iproute2 && bash /root/init.sh && /usr/sbin/rsyslogd && touch /var/log/syslog && tail -f /var/log/syslog"
+
+  network_fix:
+    # A helper container to disable Docker's anti-spoofing PREROUTING rules
+    # that block traffic when using a container as a router between bridge networks.
+    image: alpine:latest
+    container_name: network_fix
+    privileged: true
+    network_mode: host
+    command: /bin/sh -c "apk add --no-cache iptables && while true; do iptables -t raw -F PREROUTING 2>/dev/null; sleep 10; done"
+    depends_on:
+      - internal_firewall
 
 networks:
   dmz_net:
@@ -124,3 +136,4 @@ networks:
       config:
         - subnet: 10.0.30.0/24
           gateway: 10.0.30.253
+

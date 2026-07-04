@@ -25,12 +25,13 @@ All containers initialize using shell scripts (e.g., `init.sh`) mounted as volum
 - **Notes**: Shares `kernel_hardening.sh` and `os_hardening.sh` (located in `firewalls/common/`) with the edge firewall.
 
 ### Web Server (`web_server`)
-- **Role**: The main application frontend (Next.js or simple dummy app for testing).
+- **Role**: A Node.js backend serving a highly aesthetic, static-like UI. It securely connects to the database using the `web_client` role to increment and display a page visit counter.
 - **Network**: `dmz_net` (`10.0.10.100`).
 
 ### Database Server (`db_server`)
 - **Role**: PostgreSQL 15 database.
 - **Network**: `db_net` (`10.0.20.100`).
+- **Security & Schema**: The database initializes with a `page_visits` table via `/docker-entrypoint-initdb.d/init-db.sql`. It implements **Least Privilege** by creating a `web_client` role that only has `SELECT` and `UPDATE` permissions on this specific table, mitigating SQL injection risks.
 
 ### Intrusion Detection System (`ids`)
 - **Role**: Passive Suricata IDS sniffing traffic.
