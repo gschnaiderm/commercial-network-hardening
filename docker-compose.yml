@@ -91,21 +91,29 @@ services:
     command: /bin/bash -c "bash /root/init.sh && docker-entrypoint.sh postgres"
 
   siem:
-    # A lightweight syslog server for demonstration, can be swapped for ELK later
-    image: ubuntu:22.04
+    # ELK Stack SIEM (Elasticsearch, Logstash, Kibana)
+    image: sebp/elk:8.12.1
     container_name: siem
+    cap_drop:
+      - NET_RAW
     cap_add:
       - NET_ADMIN
     environment:
       - INTERNAL_FW_SIEM_IP=10.0.30.1
       - DMZ_NET=10.0.10.0/24
       - DB_NET=10.0.20.0/24
+      - LOGSTASH_START=1
+      - ELASTICSEARCH_START=1
+      - KIBANA_START=1
+    ports:
+      - "127.0.0.1:5601:5601"
     networks:
       siem_net:
         ipv4_address: 10.0.30.100
     volumes:
       - ./siem/init.sh:/root/init.sh:z
-    command: /bin/bash -c "apt-get update && apt-get install -y rsyslog iproute2 && bash /root/init.sh && /usr/sbin/rsyslogd && touch /var/log/syslog && tail -f /var/log/syslog"
+      - ./siem/logstash/conf.d:/etc/logstash/conf.d:z
+    command: /bin/bash -c "/root/init.sh"
 
   network_fix:
     # A helper container to disable Docker's anti-spoofing PREROUTING rules

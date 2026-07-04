@@ -32,7 +32,7 @@ nft add rule ip nat prerouting ip daddr $DB_IP dup to $IDS_IP
 # Allow Web Server -> Database (PostgreSQL 5432)
 nft add rule inet filter forward ip saddr $WEB_IP ip daddr $DB_IP tcp dport 5432 ct state new accept
 
-# Allow Syslog (UDP 514) from any network to SIEM
-nft add rule inet filter forward ip daddr $SIEM_IP udp dport 514 ct state new accept
+# Allow Syslog (UDP 5140) from any network to SIEM
+nft add rule inet filter forward ip daddr $SIEM_IP udp dport 5140 ct state new accept
 
 echo "Internal Firewall configured exclusively with strict SPI (nftables). DPI analysis has been removed."

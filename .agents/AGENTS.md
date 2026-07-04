@@ -39,12 +39,12 @@ All containers initialize using shell scripts (e.g., `init.sh`) mounted as volum
 - **Hardening Details**: 
   - Runs with the principle of least privilege: starts as root, binds to the network interface (`eth0` with `AF_PACKET`), and drops privileges to the `suricata` user.
   - Container capabilities are explicitly restricted in `docker-compose.yml` (`NET_ADMIN`, `NET_RAW`, `SYS_NICE`).
-- **Logging**: Forwards structured JSON alerts (`eve.json`) to the SIEM via a local `rsyslog` daemon.
+- **Logging**: Forwards structured JSON alerts (`eve.json`) via `rsyslog` to the SIEM's Logstash instance listening on UDP port 5140.
 
 ### SIEM (`siem`)
-- **Role**: Centralized syslog aggregator.
+- **Role**: Centralized SIEM platform based on the ELK Stack (Elasticsearch, Logstash, Kibana).
 - **Network**: `siem_net` (`10.0.30.100`).
-- **Configuration**: Runs Ubuntu with `rsyslog` explicitly configured to listen on UDP port 514 (`imudp`).
+- **Configuration**: Uses the `sebp/elk:8.12.1` image. Logstash is explicitly configured to listen on UDP port 5140 to receive logs from Suricata without requiring root privileges for lower ports. `NET_ADMIN` capability is enabled to configure routing. Kibana is mapped to the host at `127.0.0.1:5601`.
 
 ### Network Fix (`network_fix`)
 - **Role**: Helper container that runs with host network privileges to disable Docker's anti-spoofing mechanism.

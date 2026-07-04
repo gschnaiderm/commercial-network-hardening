@@ -33,6 +33,16 @@ suricata-update
 # SIEM Integration (Forward EVE JSON via Rsyslog)
 # -------------------------------------------------------------
 SIEM_IP="${SIEM_IP:-10.0.30.100}"
+INTERNAL_FW_IP="10.0.10.1"
+
+# Route SIEM traffic through internal firewall
+ip route add 10.0.30.0/24 via $INTERNAL_FW_IP || true
+
+# Ensure eve.json exists for rsyslog imfile module to monitor
+touch /var/log/suricata/eve.json
+chgrp suricata /var/log/suricata/eve.json || true
+chmod g+rw /var/log/suricata/eve.json || true
+
 echo "Configuring rsyslog to forward EVE JSON to SIEM at $SIEM_IP..."
 cat << EOF > /etc/rsyslog.d/suricata.conf
 \$ModLoad imfile
@@ -42,7 +52,7 @@ cat << EOF > /etc/rsyslog.d/suricata.conf
 \$InputFileSeverity info
 \$InputFileFacility local7
 \$InputRunFileMonitor
-local7.* @$SIEM_IP:514
+local7.* @$SIEM_IP:5140
 EOF
 
 /usr/sbin/rsyslogd
