@@ -46,6 +46,10 @@ All containers initialize using shell scripts (e.g., `init.sh`) mounted as volum
 - **Network**: `siem_net` (`10.0.30.100`).
 - **Configuration**: Runs Ubuntu with `rsyslog` explicitly configured to listen on UDP port 514 (`imudp`).
 
+### Network Fix (`network_fix`)
+- **Role**: Helper container that runs with host network privileges to disable Docker's anti-spoofing mechanism.
+- **Notes**: Continuously flushes the host's `iptables -t raw PREROUTING` chain every 10 seconds to allow the `internal_firewall` to route traffic between custom Docker bridge networks without being dropped by the host.
+
 ## 4. Agent Guidelines & Rules
 1. **Language**: **ALL code comments MUST be written in English**. If you modify a file, translate existing Spanish comments to English or ensure new ones are in English.
 2. **Docker Networking**: Do not alter the custom IPAM setup unless explicitly requested. The `.253` gateways are intentional to prevent Docker's default `.1` gateway from conflicting with the custom router IPs.
