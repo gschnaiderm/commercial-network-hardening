@@ -30,9 +30,14 @@ services:
       - SYS_NICE
     environment:
       - WEB_IP=10.0.10.100
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       dmz_net:
         ipv4_address: 10.0.10.200
+    sysctls:
+      - net.ipv4.ip_forward=0
     command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
 
   web_server:
