@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  edge_firewall:
+    build: ./firewalls/edge
+    container_name: edge_firewall
+    hostname: edge_firewall
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - WEB_IP=10.0.10.100
+      - IDS_IP=10.0.10.200
+    volumes:
+      - ./firewalls/common:/opt/common:z
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.254
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  ids:
+    build: ./ids
+    container_name: ids
+    hostname: ids
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    environment:
+      - WEB_IP=10.0.10.100
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.200
+    sysctls:
+      - net.ipv4.ip_forward=0
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  web_server:
+    build: ./web
+    container_name: web_server
+    hostname: web_server
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - GIT_REPO_URL=https://github.com/IAW-2026/etapa-3-control-plane-towit
+      - PORT=80
+      - INTERNAL_FW_DMZ_IP=10.0.10.1
+      - DB_NET=10.0.20.0/24
+      - SIEM_NET=10.0.30.0/24
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.100
+    command: /bin/bash -c "/root/init.sh"
+
+  internal_firewall:
+    build: ./firewalls/internal
+    container_name: internal_firewall
+    hostname: internal_firewall
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - WEB_IP=10.0.10.100
+      - DB_IP=10.0.20.100
+      - SIEM_IP=10.0.30.100
+      - IDS_IP=10.0.10.200
+    volumes:
+      - ./firewalls/common:/opt/common:z
+    networks:
+      dmz_net:
+        ipv4_address: 10.0.10.1
+      db_net:
+        ipv4_address: 10.0.20.1
+      siem_net:
+        ipv4_address: 10.0.30.1
+    command: /bin/sh -c "/root/init.sh && tail -f /dev/null"
+
+  db_server:
+    build: ./db
+    container_name: db_server
+    hostname: db_server
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - POSTGRES_PASSWORD=secretpassword
+      - POSTGRES_USER=webapp_user
+      - POSTGRES_DB=webapp_db
+      - INTERNAL_FW_DB_IP=10.0.20.1
+      - DMZ_NET=10.0.10.0/24
+      - SIEM_NET=10.0.30.0/24
+    networks:
+      db_net:
+        ipv4_address: 10.0.20.100
+    volumes:
+      - ./db/init.sh:/root/init.sh:z
+      - ./db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:z
+    command: /bin/bash -c "bash /root/init.sh && docker-entrypoint.sh postgres -c log_destination=syslog -c syslog_facility=LOCAL0"
+
+  siem:
+    # ELK Stack SIEM (Elasticsearch, Logstash, Kibana)
+    image: sebp/elk:8.12.1
+    container_name: siem
+    hostname: siem
+    cap_drop:
+      - NET_RAW
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - INTERNAL_FW_SIEM_IP=10.0.30.1
+      - DMZ_NET=10.0.10.0/24
+      - DB_NET=10.0.20.0/24
+      - LOGSTASH_START=1
+      - ELASTICSEARCH_START=1
+      - KIBANA_START=1
+    ports:
+      - "127.0.0.1:5601:5601"
+    networks:
+      siem_net:
+        ipv4_address: 10.0.30.100
+    volumes:
+      - ./siem/init.sh:/root/init.sh:z
+      - ./siem/logstash/conf.d:/etc/logstash/conf.d:z
+    command: /bin/bash -c "/root/init.sh"
+
+  network_fix:
+    # A helper container to disable Docker's anti-spoofing PREROUTING rules
+    # that block traffic when using a container as a router between bridge networks.
+    image: alpine:latest
+    container_name: network_fix
+    hostname: network_fix
+    privileged: true
+    network_mode: host
+    command: /bin/sh -c "apk add --no-cache iptables && while true; do iptables -t raw -F PREROUTING 2>/dev/null; sleep 10; done"
+    depends_on:
+      - internal_firewall
+
+networks:
+  dmz_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.10.0/24
+          gateway: 10.0.10.253
+  db_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.20.0/24
+          gateway: 10.0.20.253
+  siem_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.30.0/24
+          gateway: 10.0.30.253
+
